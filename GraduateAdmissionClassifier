@@ -1,0 +1,493 @@
+def PrintColor(text, color="blue"):
+    colors = {
+        "blue": "\033[94m",
+        "green": "\033[92m",
+        "yellow": "\033[93m",
+        "red": "\033[91m",
+        "end": "\033[0m"
+    }
+    print(f"{colors.get(color, colors['blue'])}{text}{colors['end']}")
+
+
+def print_boxed_zigzag_heading(heading):
+    gradient = [Fore.BLUE, Fore.CYAN, Fore.GREEN, Fore.YELLOW, Fore.RED, Fore.MAGENTA]
+    print("\n" + f"{Fore.YELLOW}" + "╭" + "─" * (len(heading) + 20) + "╮" + Style.RESET_ALL)  # Change line color to yellow
+    words = heading.split()
+    for i, word in enumerate(words):
+        if i == len(words) - 1:
+            print(f"{Fore.CYAN}│ {word} │" + Style.RESET_ALL) 
+        else:
+            print(f"{gradient[len(word) % len(gradient)]}│ {word}", end=" ")
+    print(f"{Fore.YELLOW}" + "╰" + "─" * (len(heading) + 20) + "╯" + Style.RESET_ALL) 
+    
+# Import Libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import plotly.express as px
+import math
+import optuna
+from colorama import Fore, Style, init;
+# Import necessary libraries
+from IPython.display import display, HTML
+from scipy.stats import skew # Import skew function
+# Import plotly.go
+import plotly.graph_objects as go
+# Import subplots
+from plotly.subplots import make_subplots
+
+# Ignore Warnings
+import warnings
+warnings.filterwarnings("ignore")
+
+# Model Classifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.metrics import accuracy_score
+from sklearn.ensemble import VotingClassifier, VotingRegressor
+from sklearn.model_selection import RepeatedStratifiedKFold, cross_val_score
+from sklearn.preprocessing import LabelEncoder, MinMaxScaler, StandardScaler, QuantileTransformer
+from sklearn.metrics import *
+
+# Classifier
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import MultinomialNB
+from lightgbm import LGBMClassifier
+import lightgbm as lgb
+from catboost import CatBoostClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, ExtraTreesClassifier,GradientBoostingClassifier
+from xgboost import XGBClassifier
+
+
+# Regressor
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.svm import SVR
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import AdaBoostRegressor
+from sklearn.ensemble import GradientBoostingRegressor
+from xgboost import XGBRegressor
+from catboost import CatBoostRegressor
+from lightgbm import LGBMRegressor
+from sklearn.linear_model import Lasso,Ridge,BayesianRidge,ElasticNet,HuberRegressor,LinearRegression,LogisticRegression,SGDRegressor
+from sklearn.metrics import mean_squared_error
+
+# Paellete
+palette = ['#D7A9E3FF', '#8BBEE8FF', '#A8D5BAFF']
+color_palette = sns.color_palette(palette)
+# Set the option to display all columns
+pd.set_option('display.max_columns', None)
+print_boxed_zigzag_heading(' Setup Initialized ')
+
+
+data = pd.read_csv('/kaggle/input/graduate-admissions/Admission_Predict.csv')
+print_boxed_zigzag_heading('Data Loaded')
+
+
+# Function for Data Overview
+def print_boxed_blue_heading(heading):
+    gradient = [Fore.BLUE, Fore.CYAN, Fore.GREEN, Fore.YELLOW, Fore.RED, Fore.MAGENTA]
+    print("\n" + "=" * (len(heading) + 20))
+    words = heading.split()
+    for i, word in enumerate(words):
+        if i == len(words) - 1:
+            print(f"| {gradient[len(word) % len(gradient)] + word + Style.RESET_ALL} |")
+        else:
+            print(f"| {gradient[len(word) % len(gradient)] + word + Style.RESET_ALL}", end=" ")
+    print("=" * (len(heading) + 20))
+def print_boxed_zigzag_heading(heading):
+    gradient = [Fore.BLUE, Fore.CYAN, Fore.GREEN, Fore.YELLOW, Fore.RED, Fore.MAGENTA]
+    print("\n" + f"{Fore.YELLOW}" + "╭" + "─" * (len(heading) + 20) + "╮" + Style.RESET_ALL)  # Change line color to yellow
+    words = heading.split()
+    for i, word in enumerate(words):
+        if i == len(words) - 1:
+            print(f"{Fore.CYAN}│ {word} │" + Style.RESET_ALL) 
+        else:
+            print(f"{gradient[len(word) % len(gradient)]}│ {word}", end=" ")
+    print(f"{Fore.YELLOW}" + "╰" + "─" * (len(heading) + 20) + "╯" + Style.RESET_ALL) 
+    
+
+# Load Data and Make DataFrame
+def L_Data(directory_TR,directory_TE):
+    filepath_TR =[]
+    label_TR = []
+
+    folds_TR = os.listdir(directory_TR)
+
+    for fold in folds_TR:
+        f_path_TR = os.path.join(directory_TR , fold)
+
+        imgs_TR = os.listdir(f_path_TR)
+
+        for img in imgs_TR:
+            img_path_TR = os.path.join(f_path_TR , img)
+            filepath_TR.append(img_path_TR)
+            label_TR.append(fold)
+
+    #Concat data paths with labels
+    file_path_series_TR = pd.Series(filepath_TR , name= 'filepath')
+    Label_path_series_TR = pd.Series(label_TR , name = 'label')
+    df_train = pd.concat([file_path_series_TR ,Label_path_series_TR ] , axis = 1)
+    
+    filepath_TE =[]
+    label_TE = []
+
+    folds_TE = os.listdir(directory_TE)
+
+    for fold in folds_TE:
+        f_path_TE = os.path.join(directory_TE , fold)
+
+        imgs_TE = os.listdir(f_path_TE)
+
+        for img in imgs_TE:
+
+            img_path_TE = os.path.join(f_path_TE , img)
+            filepath_TE.append(img_path_TE)
+            label_TE.append(fold)
+
+    #Concat data paths with labels
+    file_path_series_TE = pd.Series(filepath_TE , name= 'filepath')
+    Label_path_series_TE = pd.Series(label_TE , name = 'label')
+    df_test = pd.concat([file_path_series_TE ,Label_path_series_TE ] , axis = 1)   
+    
+    # Display head of the training dataset nicely
+    print_boxed_zigzag_heading('Train Data')
+    print_boxed_blue_heading(f"The Head Of Train Dataset is:")
+    display(HTML(df_train.head(5).to_html(index=False).replace('<table border="1" class="dataframe">', '<table style="border: 2px solid blue;">').replace('<td>', '<td style="color: skyblue;">')))
+    print('\n')
+
+    # Display tail of the training dataset nicely
+    print_boxed_blue_heading("The Tail Of Train Dataset is:")
+    display(HTML(df_train.tail(5).to_html(index=False).replace('<table border="1" class="dataframe">', '<table style="border: 2px solid blue;">').replace('<td>', '<td style="color: skyblue;">')))
+    print('\n')
+
+    print_boxed_blue_heading(f'The Shape of the Train Data is {df_train.shape} |')
+    print_boxed_blue_heading(f'- 1.The No of Rows is {df_train.shape[0]} |')
+    print_boxed_blue_heading(f'- 2.The No of Cols is {df_train.shape[1]}|')
+
+
+
+    print('\n')
+    
+    # Display head of the training dataset nicely
+    print_boxed_zigzag_heading('Test Data')
+    print_boxed_blue_heading(f"The Head Of Test Dataset is:")
+    display(HTML(df_test.head(5).to_html(index=False).replace('<table border="1" class="dataframe">', '<table style="border: 2px solid blue;">').replace('<td>', '<td style="color: skyblue;">')))
+    print('\n')
+
+    # Display tail of the training dataset nicely
+    print_boxed_blue_heading("The Tail Of Test Dataset is:")
+    display(HTML(df_test.tail(5).to_html(index=False).replace('<table border="1" class="dataframe">', '<table style="border: 2px solid blue;">').replace('<td>', '<td style="color: skyblue;">')))
+    print('\n')
+
+    print_boxed_blue_heading(f'The Shape of the Test Data is {df_test.shape} |')
+
+
+
+    print_boxed_blue_heading(f'- 1.The No of Rows is {df_test.shape[0]} |')
+    print_boxed_blue_heading(f'- 2.The No of Cols is {df_test.shape[1]}|')
+
+    print('\n')
+    
+    return df_train , df_test
+print_boxed_zigzag_heading('Load Data Function Intilized ')
+
+
+def data_overview(data):
+    # Display head of the training dataset nicely
+    print_boxed_zigzag_heading('Train Data')
+    print_boxed_blue_heading(f"The Head Of Train Dataset is:")
+    display(HTML(data.head(5).to_html(index=False).replace('<table border="1" class="dataframe">', '<table style="border: 2px solid blue;">').replace('<td>', '<td style="color: skyblue;">')))
+    print('\n')
+
+
+    # Display tail of the training dataset nicely
+    print_boxed_blue_heading("The Tail Of Train Dataset is:")
+    display(HTML(data.tail(5).to_html(index=False).replace('<table border="1" class="dataframe">', '<table style="border: 2px solid blue;">').replace('<td>', '<td style="color: skyblue;">')))
+    print('\n')
+
+    print_boxed_blue_heading(f'The Shape of the  Data is ')
+    shape_info = f"The Shape Of Train Data is {data.shape} || No of Rows is : {data.shape[0]} and Columns is {data.shape[1]}"
+    print(shape_info)
+    print('\n')
+    
+    print_boxed_blue_heading(f'Dataset Information ')
+    data_info = f" {data.info()} "
+    print(data_info)
+    print('\n')
+    
+    print_boxed_blue_heading(f'Numerical Summary ')
+    des = f"{data.describe()} "
+    print(des)
+    print('\n')
+    
+    print_boxed_blue_heading(f'Null Values ')
+    null_ = f"{data.isnull().sum()} "
+    print(null_)
+    print('\n')
+    
+    print_boxed_blue_heading(f'Duplicate Values ')
+    dup_ = f"{data.duplicated().sum()} "
+    print(dup_)
+    print('\n')
+data_overview(data)
+
+data.head(5).style.background_gradient(cmap='Greys')
+
+print_boxed_blue_heading(f'The Shape of the  Data is ')
+shape_info = f"The Shape Of Train Data is {data.shape} || No of Rows is : {data.shape[0]} and Columns is {data.shape[1]}"
+PrintColor(shape_info)
+print('\n')
+
+
+print_boxed_blue_heading(f'{data.ndim}')
+
+print_boxed_blue_heading(f'{data.size}')
+
+PrintColor(f'{data.columns}')
+
+data.index
+
+data.info()
+
+# Drop Irrelevent Column
+data.drop('Serial No.', axis=1, inplace=True)
+print_boxed_zigzag_heading('Column Dropped')
+
+data.describe().T.style.background_gradient(cmap='Greys')
+
+Cat_features = [feature for feature in data.columns if data[feature].dtypes=='O']
+Cat_features
+
+Dis_features = [feature for feature in data.columns if data[feature].dtypes=='int64']
+Dis_features
+
+Continous_features = [feature for feature in data.columns if data[feature].dtypes=='float64']
+Continous_features
+
+#I have observed some spaces at column names...
+data.columns = data.columns.str.replace(' ', '')
+data.columns
+
+
+from IPython.core.display import HTML
+
+def multi_table(table_list):
+    ''' Acceps a list of IpyTable objects and returns a table which contains each IpyTable in a cell
+    '''
+    return HTML(
+        '<table><tr style="background-color:white;">' + 
+        ''.join(['<td>' + table._repr_html_() + '</td>' for table in table_list]) +
+        '</tr></table>')
+
+df_nunique = {var: pd.DataFrame(data[var].value_counts()) 
+              for var in {'GREScore', 'TOEFLScore', 'UniversityRating', 'SOP', 'LOR','CGPA',
+       'Research', 'ChanceofAdmit'}}
+multi_table([df_nunique['GREScore'].style.background_gradient(cmap='Greys'), df_nunique['TOEFLScore'].style.background_gradient(cmap='Greys'),df_nunique['UniversityRating'].style.background_gradient(cmap='Greys') ,df_nunique['SOP'].style.background_gradient(cmap='Greys'),df_nunique['LOR'].style.background_gradient(cmap='Greys'),df_nunique['CGPA'].style.background_gradient(cmap='Greys'),df_nunique['Research'].style.background_gradient(cmap='Greys'),df_nunique['ChanceofAdmit'].style.background_gradient(cmap='Greys')])
+
+
+# Visualizing the missing values
+import missingno as mn
+mn.matrix(data)
+
+
+#PERCENTAGE OF THE MISSING VALUES - DATAFRAME..... 
+def missing_data(df):
+    total = df.isnull().sum().sort_values(ascending = False)
+    Percentage = (df.isnull().sum()/df.isnull().count()*100).sort_values(ascending = False)
+    return pd.concat([total, Percentage], axis=1, keys=['Total', 'Percentage'])
+
+missing_data(data).style.background_gradient(cmap='Greys')
+
+data[data.duplicated()]
+
+
+def percent_value_counts(df, feature):
+    """This function takes in a dataframe and a column and finds the percentage of the value_counts"""
+    percent = pd.DataFrame(round(df.loc[:,feature].value_counts(dropna=False, normalize=True)*100,2))
+    ## creating a df with th
+    total = pd.DataFrame(df.loc[:,feature].value_counts(dropna=False))
+    ## concating percent and total dataframe
+
+    total.columns = ["Total"]
+    percent.columns = ['Percent']
+    return pd.concat([total, percent], axis = 1)
+
+percent_value_counts(data, 'GREScore').style.background_gradient(cmap='Greys')
+
+fig = make_subplots(rows=1,cols=1)
+fig.add_trace(go.Bar(y = data['GREScore'].value_counts().values.tolist(), 
+                      x = data['GREScore'].value_counts().index, 
+                      text=data['GREScore'].value_counts().values.tolist(),
+              textfont=dict(size=15),
+                      textposition = 'outside',
+                      showlegend=False,
+              marker = dict(color = '#19e6e6',
+                            line_color = 'black',
+                            line_width=3)),row = 1,col = 1)
+
+fig.update_layout(title='Density distribution of GRE Score',
+                  template='plotly_white')
+fig.update_yaxes(range=[0,25])
+# Display the figure
+fig 
+
+
+percent_value_counts(data, 'TOEFLScore').style.background_gradient(cmap='Greys')
+
+fig = make_subplots(rows=1,cols=1)
+fig.add_trace(go.Bar(y = data['TOEFLScore'].value_counts().values.tolist(), 
+                      x = data['TOEFLScore'].value_counts().index, 
+                      text=data['TOEFLScore'].value_counts().values.tolist(),
+              textfont=dict(size=15),
+                      textposition = 'outside',
+                      showlegend=False,
+              marker = dict(color = '#19e6e6',
+                            line_color = 'black',
+                            line_width=3)),row = 1,col = 1)
+
+fig.update_layout(title='Density distribution of TOEFL Score',
+                  template='plotly_white')
+fig.update_yaxes(range=[0,48])
+fig
+
+print_boxed_zigzag_heading('Correlation Matrix ')
+
+sns.heatmap(data.corr(), annot=True)
+plt.show()
+
+data.columns
+
+
+# Let's see the distribution of the variables of graduate applicants
+sns.distplot(data['GREScore'], kde=False)
+plt.title("Distribution of GRE Scores")
+plt.show()
+
+sns.distplot(data['TOEFLScore'], kde=False)
+plt.title("Distribution of TOEFL Score")
+plt.show()
+
+sns.distplot(data['UniversityRating'], kde=False)
+plt.title("Distribution of University Rating")
+plt.show()
+
+sns.distplot(data['SOP'], kde=False)
+plt.title("Distribution of SOP")
+plt.show()
+
+sns.distplot(data['CGPA'], kde=False)
+plt.title("Distribution of CGPA")
+plt.show()
+
+sns.distplot(data['Research'], kde=False)
+plt.title("Distribution of Research")
+plt.show()
+
+data.columns
+
+sns.regplot(x="GREScore", y="TOEFLScore", data=data)
+plt.title("GRE Score vs TOEFL Score")
+plt.show()
+
+
+sns.regplot(x="GREScore", y="CGPA", data=data)
+plt.title("GRE Score vs CGPA")
+plt.show()
+
+X = data.iloc[:,:-1]
+
+y = data.iloc[:,-1]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train.shape
+
+print_boxed_zigzag_heading('Data Splitted Done !')
+print_boxed_zigzag_heading(f"Training set shape - X: {X_train.shape}, y: {y_train.shape}")
+print_boxed_zigzag_heading(f"Testing set shape - X: {X_test.shape}, y: {y_test.shape}")
+
+from sklearn.preprocessing import StandardScaler
+scaler = StandardScaler()
+
+X_train = scaler.fit_transform(X_train)
+
+X_test = scaler.transform(X_test)
+print_boxed_zigzag_heading('Data Scaled Done !')
+
+# Model Classifier
+import numpy as np
+y_train = [ 1 if val >0.8 else 0 for val in y_train]
+
+y_test = [ 1 if val >0.8 else 0 for val in y_test]
+y_train = np.array(y_train)
+
+y_test = np.array(y_test)
+y_train, y_test
+
+
+
+from sklearn.metrics import accuracy_score
+modelsC = [['DecisionTree :',DecisionTreeClassifier()],
+           ['Logistic Regression :', LogisticRegression()],
+           ['RandomForest :',RandomForestClassifier()],
+           ['KNeighbours :', KNeighborsClassifier(n_neighbors = 2)],
+           ['SVM :', SVC()],
+           ['AdaBoostClassifier :', AdaBoostClassifier()],
+           ['GradientBoostingClassifier: ', GradientBoostingClassifier()],
+           ['Xgboost: ', XGBClassifier()],
+           ['CatBoost: ', CatBoostClassifier(logging_level='Silent')],
+           ['BayesianRidge: ', BayesianRidge()],
+           ['ExtraTreesClassifier: ', ExtraTreesClassifier()],
+           # ['lgbm_regressor: ',  LGBMClassifier()]
+         ]
+
+print("Results...")
+
+final_data_c= pd.DataFrame(columns=['Models', 'Accuracy'])
+for name, model in modelsC:
+    model=model
+    model.fit(X_train, y_train)
+    # Convert probabilities to class labels (if model output is probabilistic)
+    pred = (model.predict(X_test) > 0.8).astype(int)  # For binary classification
+
+
+    # print(name, (np.sqrt(mean_squared_error(y_test, pred))))
+   
+    final_data_c = pd.concat([final_data_c, pd.DataFrame({'Models': [name], 'Accuracy': [accuracy_score(y_test, pred)]})], ignore_index=True)
+    print_boxed_zigzag_heading(f"Evaluation Results for {name} Classifier")
+    PrintColor(f"The Accuracy Of {name} Classifier is {accuracy_score(y_test, pred)}")
+
+final_data_c
+
+plt.figure(figsize=(12,8))
+sns.barplot(x= final_data_c['Models'], y= final_data_c['Accuracy'])
+plt.xticks(rotation=75)
+plt.show()
+
+X = data.drop('ChanceofAdmit', axis=1)
+
+y = data['ChanceofAdmit']
+
+y = [ 1 if val>0.8 else 0 for val in y]
+
+y = np.array(y)
+
+X = scaler.fit_transform(X)
+gdc= GradientBoostingClassifier()
+gdc.fit(X,y)
+
+
+import joblib
+
+joblib.dump(gdc, 'admission_model')
+
+model = joblib.load('admission_model')
+data.columns
+
+res = model.predict(scaler.transform([[337, 118, 4 , 4.5, 4.5, 9.65, 1]]))
+res[0]
